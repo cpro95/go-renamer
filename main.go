@@ -23,6 +23,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/gdamore/tcell"
 	"github.com/gdamore/tcell/encoding"
@@ -75,25 +76,29 @@ func drawBox(s tcell.Screen, x1, y1, x2, y2 int, style tcell.Style, r rune) {
 	}
 }
 
-// params @{index int} : index is current index
-func drawList(s tcell.Screen, index int, list []string) {
-	w, _ := s.Size()
-
-	count := len(list)
-
-	white := tcell.StyleDefault.
-		Foreground(tcell.ColorWhite).Background(tcell.ColorBlack)
-	blue := tcell.StyleDefault.Background(tcell.ColorBlue)
-
-	drawBox(s, 1, 20, w-2, 20+count+1, white, ' ')
-	for i := 0; i < count; i++ {
-		if i == index {
-			emitStr(s, 3, 20+1+i, blue, list[i])
-		} else {
-			emitStr(s, 3, 20+1+i, white, list[i])
-		}
+func loadData(f *filesTodo, list, list2 *List) {
+	for _, item := range f.m.items {
+		list.AddItem(item, nil)
 	}
+	for _, item := range f.s.items {
+		list2.AddItem(item, nil)
+	}
+}
 
+func handleDown(list, list2 *List) {
+	if list.HasFocus() {
+		list.SetCurrentItem(list.currentItem + 1)
+	} else if list2.HasFocus() {
+		list2.SetCurrentItem(list2.currentItem + 1)
+	}
+}
+
+func handleUp(list, list2 *List) {
+	if list.HasFocus() {
+		list.SetCurrentItem(list.currentItem - 1)
+	} else if list2.HasFocus() {
+		list2.SetCurrentItem(list2.currentItem - 1)
+	}
 }
 
 // This program just shows simple mouse and keyboard events.  Press ESC twice to
@@ -114,9 +119,6 @@ func main() {
 	// get the w, h of Screen of tcell
 	w, h := s.Size()
 
-	// f := NewFilesTodo()
-	// f.FindData(".")
-
 	defStyle = tcell.StyleDefault.
 		Background(tcell.ColorBlack).
 		Foreground(tcell.ColorWhite)
@@ -126,6 +128,23 @@ func main() {
 	box.SetStyle(defStyle)
 	box.SetTitle("Debug Box(디버그 창)")
 	box.SetTitleColor(tcell.ColorYellow)
+	box.SetRect(1, 1, w-2, 6)
+
+	f := NewFilesTodo()
+	f.FindData(".")
+
+	list := NewList()
+	list.Box.SetRect(1, 8, w-2, f.m.GetItemCount()+2)
+
+	list.Box.SetBorderPadding(0, 0, 1, 1)
+
+	list2 := NewList()
+	list2.Box.SetRect(1, 8+1+f.m.GetItemCount()+2, w-2, f.s.GetItemCount()+2)
+
+	list2.Box.SetBorderPadding(0, 0, 1, 1)
+	list2.SetFocus(false)
+
+	loadData(f, list, list2)
 
 	// s.EnableMouse()
 	s.Clear()
@@ -135,62 +154,73 @@ func main() {
 		Foreground(tcell.ColorWhite).Background(tcell.ColorBlue)
 
 	lks := ""
-	ecnt := 0
-	index := 0
 	for {
-		box.SetRect(1, 1, w-2, 6)
 
 		box.Draw(s)
-		emitStr(s, 3, 2, white, "Press ESC twice or q to exit, C to clear.")
+		emitStr(s, 3, 2, white, "Press Q to exit, R to Reload, JK to Up & Down, D to Delete Item, Tab to Switching, Space to Selecting")
 		emitStr(s, 3, 3, white, fmt.Sprintf("Box Size: (%d,%d) / %d x %d", box.x, box.y, box.width, box.height))
 		x5, y5, x6, y6 := box.GetInnerRect()
 		emitStr(s, 3, 4, defStyle, fmt.Sprintf("Inner Rect Size : (%d,%d) / %d x %d", x5, y5, x6, y6))
 		emitStr(s, 3, 5, white, fmt.Sprintf(keyfmt, lks))
-		// drawList(s, index, f.m.items)
+
+		list.Box.SetTitle(strconv.Itoa(list.currentItem))
+		list.Draw(s)
+		list2.Box.SetTitle(strconv.Itoa(list2.currentItem))
+		list2.Draw(s)
 
 		s.Show()
 		ev := s.PollEvent()
-		st := tcell.StyleDefault.Background(tcell.ColorBlack)
 		w, h = s.Size()
 
 		switch ev := ev.(type) {
 		case *tcell.EventResize:
 			s.Sync()
-			// Debug Info to lower right corner, "R" means Resize
-			// s.SetContent(w-1, h-1, 'R', nil, st)
 		case *tcell.EventKey:
-			// ev.Rune() is key what you just pressed
-			// s.SetContent(w-2, h-2, ev.Rune(), nil, st)
-			// s.SetContent(w-1, h-1, 'K', nil, st)
-
 			if ev.Key() == tcell.KeyEscape {
-				ecnt++
-				// escape key was pressed twice it'll quit(exit)
-				if ecnt > 1 {
-					s.Fini()
-					os.Exit(0)
-				}
+				s.Sync()
 			} else if ev.Key() == tcell.KeyCtrlL {
 				s.Sync()
+			} else if ev.Key() == tcell.KeyTab {
+				if list.HasFocus() {
+					list.SetFocus(false)
+					list2.SetFocus(true)
+				} else if list2.HasFocus() {
+					list.SetFocus(true)
+					list2.SetFocus(false)
+				}
+			} else if ev.Key() == tcell.KeyDown {
+				handleDown(list, list2)
+			} else if ev.Key() == tcell.KeyUp {
+				handleUp(list, list2)
 			} else {
-				ecnt = 0
-				if ev.Rune() == 'C' || ev.Rune() == 'c' {
+				if ev.Rune() == 'R' || ev.Rune() == 'r' {
 					s.Clear()
+					list.items = nil
+					list2.items = nil
+					loadData(f, list, list2)
 				}
 				if ev.Rune() == 'Q' || ev.Rune() == 'q' {
 					s.Fini()
 					os.Exit(0)
 				}
 				if ev.Rune() == 'J' || ev.Rune() == 'j' {
-					index++
+					handleDown(list, list2)
 				}
 				if ev.Rune() == 'K' || ev.Rune() == 'k' {
-					index--
+					handleUp(list, list2)
 				}
+				if ev.Rune() == 'D' || ev.Rune() == 'd' {
+					if list.HasFocus() {
+						list.RemoveItem(list.currentItem)
+					} else if list2.HasFocus() {
+						list2.RemoveItem(list2.currentItem)
+					}
+				}
+
 			}
 			lks = ev.Name()
 		default:
-			s.SetContent(w-1, h-1, 'X', nil, st)
+			s.SetContent(w-1, h-1, 'X', nil, defStyle)
 		}
 
 	}

@@ -122,41 +122,43 @@ func (b *Box) SetTitleColor(color tcell.Color) *Box {
 
 // Draw draws this primitive onto the screen.
 func (b *Box) Draw(s tcell.Screen) {
+	x2 := b.x + b.width - 1
+	y2 := b.y + b.height - 1
 
-	if b.height < b.y {
-		b.y, b.height = b.height, b.y
+	if y2 < b.y {
+		b.y, y2 = y2, b.y
 	}
-	if b.width < b.x {
-		b.x, b.width = b.width, b.x
+	if x2 < b.x {
+		b.x, x2 = x2, b.x
 	}
 
 	// Fill background
-	for row := b.y + 1; row < b.height; row++ {
-		for col := b.x + 1; col < b.width; col++ {
+	for row := b.y + 1; row < y2; row++ {
+		for col := b.x + 1; col < x2; col++ {
 			s.SetContent(col, row, ' ', nil, b.defStyle)
 		}
 	}
 
-	for col := b.x; col <= b.width; col++ {
+	for col := b.x; col <= x2; col++ {
 		s.SetContent(col, b.y, BoxDrawingsHeavyDoubleDashHorizontal, nil, b.defStyle)
-		s.SetContent(col, b.height, BoxDrawingsHeavyDoubleDashHorizontal, nil, b.defStyle)
+		s.SetContent(col, y2, BoxDrawingsHeavyDoubleDashHorizontal, nil, b.defStyle)
 	}
 
-	for row := b.y + 1; row < b.height; row++ {
+	for row := b.y + 1; row < y2; row++ {
 		s.SetContent(b.x, row, BoxDrawingsDoubleVertical, nil, b.defStyle)
-		s.SetContent(b.width, row, BoxDrawingsDoubleVertical, nil, b.defStyle)
+		s.SetContent(x2, row, BoxDrawingsDoubleVertical, nil, b.defStyle)
 	}
 
-	if b.y != b.height && b.x != b.width {
+	if b.y != y2 && b.x != x2 {
 		// Only add corners if we need to
 		s.SetContent(b.x, b.y, BoxDrawingsDoubleDownAndRight, nil, b.defStyle)
-		s.SetContent(b.width, b.y, BoxDrawingsDoubleDownAndLeft, nil, b.defStyle)
-		s.SetContent(b.x, b.height, BoxDrawingsDoubleUpAndRight, nil, b.defStyle)
-		s.SetContent(b.width, b.height, BoxDrawingsDoubleUpAndLeft, nil, b.defStyle)
+		s.SetContent(x2, b.y, BoxDrawingsDoubleDownAndLeft, nil, b.defStyle)
+		s.SetContent(b.x, y2, BoxDrawingsDoubleUpAndRight, nil, b.defStyle)
+		s.SetContent(x2, y2, BoxDrawingsDoubleUpAndLeft, nil, b.defStyle)
 	}
 
 	// Draw title.
-	if b.title != "" && b.width >= 4 {
+	if b.title != "" && x2 >= 4 {
 		//this is for 2 byte character, insert " " at the end of title and first of line
 		title := " " + b.title + " "
 		emitStr(s, b.x+1, b.y, tcell.StyleDefault.Foreground(b.titleColor), title)
