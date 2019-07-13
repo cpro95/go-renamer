@@ -23,44 +23,12 @@ package main
 import (
 	"fmt"
 	"os"
-	"strconv"
 
 	"github.com/gdamore/tcell"
 	"github.com/gdamore/tcell/encoding"
 )
 
 var defStyle tcell.Style
-
-// params @{r rune} : fill r as white space
-func drawBox(s tcell.Screen, x1, y1, x2, y2 int, style tcell.Style, r rune) {
-	if y2 < y1 {
-		y1, y2 = y2, y1
-	}
-	if x2 < x1 {
-		x1, x2 = x2, x1
-	}
-
-	for col := x1; col <= x2; col++ {
-		s.SetContent(col, y1, tcell.RuneHLine, nil, style)
-		s.SetContent(col, y2, tcell.RuneHLine, nil, style)
-	}
-	for row := y1 + 1; row < y2; row++ {
-		s.SetContent(x1, row, tcell.RuneVLine, nil, style)
-		s.SetContent(x2, row, tcell.RuneVLine, nil, style)
-	}
-	if y1 != y2 && x1 != x2 {
-		// Only add corners if we need to
-		s.SetContent(x1, y1, tcell.RuneULCorner, nil, style)
-		s.SetContent(x2, y1, tcell.RuneURCorner, nil, style)
-		s.SetContent(x1, y2, tcell.RuneLLCorner, nil, style)
-		s.SetContent(x2, y2, tcell.RuneLRCorner, nil, style)
-	}
-	for row := y1 + 1; row < y2; row++ {
-		for col := x1 + 1; col < x2; col++ {
-			s.SetContent(col, row, r, nil, style)
-		}
-	}
-}
 
 func loadData(f *filesTodo, list, list2 *List) {
 	for _, item := range f.m.items {
@@ -147,6 +115,21 @@ func handleSelect(screen tcell.Screen, list, list2 *List) {
 	}
 }
 
+func handleRename(f *filesTodo, list, list2 *List) {
+	f.m.Clear()
+	f.s.Clear()
+
+	for _, item := range list.items {
+		f.m.InsertItem(item.MainText)
+	}
+
+	for _, item := range list2.items {
+		f.s.InsertItem(item.MainText)
+	}
+
+	f.RenameIt()
+}
+
 // This program just shows simple mouse and keyboard events.  Press ESC twice to
 // exit.
 func main() {
@@ -172,7 +155,7 @@ func main() {
 
 	box := NewBox()
 	box.SetStyle(defStyle)
-	box.SetTitle("Debug Box(디버그 창)")
+	box.SetTitle("Welcome to Go-Renamer")
 	box.SetTitleColor(tcell.ColorYellow)
 	box.SetRect(1, 1, w-2, 6)
 
@@ -203,15 +186,16 @@ func main() {
 	for {
 
 		box.Draw(s)
-		emitStr(s, 3, 2, white, "Press Q to exit, R to Reload, JK to Up & Down, D to Delete Item, Y to Rename This")
-		emitStr(s, 3, 3, white, "Tab to Switching, Space to Selecting & Greying Item and then JK to Up & Down the selected item")
-		x5, y5, x6, y6 := box.GetInnerRect()
-		emitStr(s, 3, 4, defStyle, fmt.Sprintf("Box Size: (%d,%d) / %d x %d - Inner Rect Size : (%d,%d) / %d x %d", box.x, box.y, box.width, box.height, x5, y5, x6, y6))
+		emitStr(s, 3, 2, white, "Press Q to exit, R to Reload, JK to Up & Down")
+		emitStr(s, 3, 3, defStyle, "D to Delete Item, Y to Rename This")
+		emitStr(s, 3, 4, defStyle, "Tab to Switching, Space to Selecting & Greying Item and then Up & Down")
 		emitStr(s, 3, 5, white, fmt.Sprintf(keyfmt, lks))
 
-		list.Box.SetTitle(strconv.Itoa(list.currentItem) + " " + strconv.FormatBool(list.selected))
+		// list.Box.SetTitle(strconv.Itoa(list.currentItem) + " " + strconv.FormatBool(list.selected))
+		list.Box.SetTitle("Movies...")
 		list.Draw(s)
-		list2.Box.SetTitle(strconv.Itoa(list2.currentItem) + " " + strconv.FormatBool(list2.selected))
+		// list2.Box.SetTitle(strconv.Itoa(list2.currentItem) + " " + strconv.FormatBool(list2.selected))
+		list2.Box.SetTitle("Subtitles...")
 		list2.Draw(s)
 
 		s.Show()
@@ -264,6 +248,20 @@ func main() {
 				}
 				if ev.Rune() == ' ' {
 					handleSelect(s, list, list2)
+				}
+				if ev.Rune() == 'Y' || ev.Rune() == 'y' {
+					if list.GetItemCount() == list2.GetItemCount() {
+						handleRename(f, list, list2)
+						f.m.Clear()
+						f.s.Clear()
+						f.FindData(".")
+						s.Clear()
+						list.Clear()
+						list2.Clear()
+						loadData(f, list, list2)
+					} else {
+						emitStr(s, 3, 7, white, "Error: count mismatch")
+					}
 				}
 
 			}

@@ -20,6 +20,10 @@ func (m *Movies) GetItemCount() int {
 	return len(m.items)
 }
 
+func (m *Movies) Clear() {
+	m.items = nil
+}
+
 func (m *Movies) ToString() string {
 	tempString := strings.Join(m.items, " ")
 	return tempString
