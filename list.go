@@ -23,6 +23,9 @@ type List struct {
 	// The index of the currently selected item.
 	currentItem int
 
+	// Selected if currentItem
+	selected bool
+
 	// The item main text color.
 	mainTextColor tcell.Color
 
@@ -40,17 +43,6 @@ type List struct {
 
 	// Whether or not this list has focus.
 	hasFocus bool
-
-	// An optional function which is called when the user has navigated to a list
-	// item.
-	changed func(index int, mainText string)
-
-	// An optional function which is called when a list item was selected. This
-	// function will be called even if the list item defines its own callback.
-	selected func(index int, mainText string)
-
-	// An optional function which is called when the user presses the Escape key.
-	done func()
 }
 
 // NewList returns a new form.
@@ -58,6 +50,7 @@ func NewList() *List {
 	return &List{
 		Box:                     NewBox(),
 		highlightFullLine:       true,
+		selected:                false,
 		mainTextColor:           tcell.ColorWhite,
 		selectedTextColor:       tcell.ColorBlack,
 		selectedBackgroundColor: tcell.ColorWhite,
@@ -81,11 +74,6 @@ func (l *List) SetCurrentItem(index int) *List {
 	}
 	if index < 0 {
 		index = 0
-	}
-
-	if index != l.currentItem && l.changed != nil {
-		item := l.items[index]
-		l.changed(index, item.MainText)
 	}
 
 	l.currentItem = index
@@ -132,17 +120,11 @@ func (l *List) RemoveItem(index int) *List {
 	}
 
 	// Shift current item.
-	previousCurrentItem := l.currentItem
+	// previousCurrentItem := l.currentItem
 	if l.currentItem >= index {
 		if l.currentItem != 0 {
 			l.currentItem--
 		}
-	}
-
-	// Fire "changed" event for removed items.
-	if previousCurrentItem == index && l.changed != nil {
-		item := l.items[l.currentItem]
-		l.changed(l.currentItem, item.MainText)
 	}
 
 	return l
@@ -172,33 +154,6 @@ func (l *List) SetSelectedBackgroundColor(color tcell.Color) *List {
 // the selected item from beginning to end is highlighted.
 func (l *List) SetHighlightFullLine(highlight bool) *List {
 	l.highlightFullLine = highlight
-	return l
-}
-
-// SetChangedFunc sets the function which is called when the user navigates to
-// a list item. The function receives the item's index in the list of items
-// (starting with 0), its main text, secondary text, and its shortcut rune.
-//
-// This function is also called when the first item is added or when
-// SetCurrentItem() is called.
-func (l *List) SetChangedFunc(handler func(index int, mainText string)) *List {
-	l.changed = handler
-	return l
-}
-
-// SetSelectedFunc sets the function which is called when the user selects a
-// list item by pressing Enter on the current selection. The function receives
-// the item's index in the list of items (starting with 0), its main text,
-// secondary text, and its shortcut rune.
-func (l *List) SetSelectedFunc(handler func(int, string)) *List {
-	l.selected = handler
-	return l
-}
-
-// SetDoneFunc sets a function which is called when the user presses the Escape
-// key.
-func (l *List) SetDoneFunc(handler func()) *List {
-	l.done = handler
 	return l
 }
 
@@ -256,12 +211,6 @@ func (l *List) InsertItem(index int, mainText string, selected func()) *List {
 		copy(l.items[index+1:], l.items[index:])
 	}
 	l.items[index] = item
-
-	// Fire a "change" event for the first item in the list.
-	if len(l.items) == 1 && l.changed != nil {
-		item := l.items[0]
-		l.changed(0, item.MainText)
-	}
 
 	return l
 }

@@ -31,20 +31,6 @@ import (
 
 var defStyle tcell.Style
 
-// func emitStr(s tcell.Screen, x, y int, style tcell.Style, str string) {
-// 	for _, c := range str {
-// 		var comb []rune
-// 		w := runewidth.RuneWidth(c)
-// 		if w == 0 {
-// 			comb = []rune{c}
-// 			c = ' '
-// 			w = 1
-// 		}
-// 		s.SetContent(x, y, c, comb, style)
-// 		x += w
-// 	}
-// }
-
 // params @{r rune} : fill r as white space
 func drawBox(s tcell.Screen, x1, y1, x2, y2 int, style tcell.Style, r rune) {
 	if y2 < y1 {
@@ -85,19 +71,79 @@ func loadData(f *filesTodo, list, list2 *List) {
 	}
 }
 
-func handleDown(list, list2 *List) {
+func handleDown(screen tcell.Screen, list, list2 *List) {
 	if list.HasFocus() {
-		list.SetCurrentItem(list.currentItem + 1)
+		if list.selected {
+			if list.currentItem < list.GetItemCount()-1 {
+				list.items[list.currentItem], list.items[list.currentItem+1] = list.items[list.currentItem+1], list.items[list.currentItem]
+				handleSelect(screen, list, list2)
+				handleDown(screen, list, list2)
+			}
+		} else {
+			list.SetCurrentItem(list.currentItem + 1)
+		}
 	} else if list2.HasFocus() {
-		list2.SetCurrentItem(list2.currentItem + 1)
+		if list2.selected {
+			if list2.currentItem < list2.GetItemCount()-1 {
+				list2.items[list2.currentItem], list2.items[list2.currentItem+1] = list2.items[list2.currentItem+1], list2.items[list2.currentItem]
+				handleSelect(screen, list, list2)
+				handleDown(screen, list, list2)
+			}
+		} else {
+			list2.SetCurrentItem(list2.currentItem + 1)
+		}
 	}
 }
 
-func handleUp(list, list2 *List) {
+func handleUp(screen tcell.Screen, list, list2 *List) {
 	if list.HasFocus() {
-		list.SetCurrentItem(list.currentItem - 1)
+		if list.selected {
+			if list.currentItem > 0 {
+				list.items[list.currentItem-1], list.items[list.currentItem] = list.items[list.currentItem], list.items[list.currentItem-1]
+				handleSelect(screen, list, list2)
+				handleUp(screen, list, list2)
+			}
+		} else {
+			list.SetCurrentItem(list.currentItem - 1)
+		}
 	} else if list2.HasFocus() {
-		list2.SetCurrentItem(list2.currentItem - 1)
+		if list2.selected {
+			if list2.currentItem > 0 {
+				list2.items[list2.currentItem-1], list2.items[list2.currentItem] = list2.items[list2.currentItem], list2.items[list2.currentItem-1]
+				handleSelect(screen, list, list2)
+				handleUp(screen, list, list2)
+			}
+		} else {
+			list2.SetCurrentItem(list2.currentItem - 1)
+		}
+	}
+}
+
+func handleSelect(screen tcell.Screen, list, list2 *List) {
+	if list.HasFocus() {
+		x, y, _, _ := list.GetInnerRect()
+		_, _, style, _ := screen.GetContent(x, y+list.currentItem)
+		_, bg, _ := style.Decompose()
+		if bg == tcell.ColorWhite {
+			list.SetSelectedBackgroundColor(tcell.ColorGrey)
+		} else {
+			list.SetSelectedBackgroundColor(tcell.ColorWhite)
+		}
+
+		// convert selected bool
+		list.selected = !list.selected
+	} else if list2.HasFocus() {
+		x, y, _, _ := list2.GetInnerRect()
+		_, _, style, _ := screen.GetContent(x, y+list2.currentItem)
+		_, bg, _ := style.Decompose()
+		if bg == tcell.ColorWhite {
+			list2.SetSelectedBackgroundColor(tcell.ColorGrey)
+		} else {
+			list2.SetSelectedBackgroundColor(tcell.ColorWhite)
+		}
+
+		// convert selected bool
+		list2.selected = !list2.selected
 	}
 }
 
@@ -157,15 +203,15 @@ func main() {
 	for {
 
 		box.Draw(s)
-		emitStr(s, 3, 2, white, "Press Q to exit, R to Reload, JK to Up & Down, D to Delete Item, Tab to Switching, Space to Selecting")
-		emitStr(s, 3, 3, white, fmt.Sprintf("Box Size: (%d,%d) / %d x %d", box.x, box.y, box.width, box.height))
+		emitStr(s, 3, 2, white, "Press Q to exit, R to Reload, JK to Up & Down, D to Delete Item, Y to Rename This")
+		emitStr(s, 3, 3, white, "Tab to Switching, Space to Selecting & Greying Item and then JK to Up & Down the selected item")
 		x5, y5, x6, y6 := box.GetInnerRect()
-		emitStr(s, 3, 4, defStyle, fmt.Sprintf("Inner Rect Size : (%d,%d) / %d x %d", x5, y5, x6, y6))
+		emitStr(s, 3, 4, defStyle, fmt.Sprintf("Box Size: (%d,%d) / %d x %d - Inner Rect Size : (%d,%d) / %d x %d", box.x, box.y, box.width, box.height, x5, y5, x6, y6))
 		emitStr(s, 3, 5, white, fmt.Sprintf(keyfmt, lks))
 
-		list.Box.SetTitle(strconv.Itoa(list.currentItem))
+		list.Box.SetTitle(strconv.Itoa(list.currentItem) + " " + strconv.FormatBool(list.selected))
 		list.Draw(s)
-		list2.Box.SetTitle(strconv.Itoa(list2.currentItem))
+		list2.Box.SetTitle(strconv.Itoa(list2.currentItem) + " " + strconv.FormatBool(list2.selected))
 		list2.Draw(s)
 
 		s.Show()
@@ -189,14 +235,14 @@ func main() {
 					list2.SetFocus(false)
 				}
 			} else if ev.Key() == tcell.KeyDown {
-				handleDown(list, list2)
+				handleDown(s, list, list2)
 			} else if ev.Key() == tcell.KeyUp {
-				handleUp(list, list2)
+				handleUp(s, list, list2)
 			} else {
 				if ev.Rune() == 'R' || ev.Rune() == 'r' {
 					s.Clear()
-					list.items = nil
-					list2.items = nil
+					list.Clear()
+					list2.Clear()
 					loadData(f, list, list2)
 				}
 				if ev.Rune() == 'Q' || ev.Rune() == 'q' {
@@ -204,10 +250,10 @@ func main() {
 					os.Exit(0)
 				}
 				if ev.Rune() == 'J' || ev.Rune() == 'j' {
-					handleDown(list, list2)
+					handleDown(s, list, list2)
 				}
 				if ev.Rune() == 'K' || ev.Rune() == 'k' {
-					handleUp(list, list2)
+					handleUp(s, list, list2)
 				}
 				if ev.Rune() == 'D' || ev.Rune() == 'd' {
 					if list.HasFocus() {
@@ -215,6 +261,9 @@ func main() {
 					} else if list2.HasFocus() {
 						list2.RemoveItem(list2.currentItem)
 					}
+				}
+				if ev.Rune() == ' ' {
+					handleSelect(s, list, list2)
 				}
 
 			}
