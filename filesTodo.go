@@ -33,7 +33,7 @@ func (f *filesTodo) FindData(path string) {
 		if ext_name == ".mkv" || ext_name == ".avi" || ext_name == ".mp4" {
 			f.m.InsertItem(file.Name())
 		}
-		if ext_name == ".srt" || ext_name == ".smi" || ext_name == ".smil" {
+		if ext_name == ".srt" || ext_name == ".smi" || ext_name == ".smil" || ext_name == ".ass" {
 			f.s.InsertItem(file.Name())
 		}
 	}

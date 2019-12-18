@@ -12,3 +12,5 @@ clean:
 deps:
 	go get github.com/gdamore/tcell
 	go get github.com/gdamore/tcell/encoding
+	go get github.com/sirupsen/logrus
+
